@@ -3,6 +3,7 @@ import { BASE_URL } from "./config";
 import { motion } from "framer-motion";
 import ColorPicker from "react-pick-color";
 import { TbMathFunction } from "react-icons/tb";
+import toast, { Toaster } from "react-hot-toast";
 import { useEffect, useRef, useState } from "react";
 
 const App = () => {
@@ -14,6 +15,7 @@ const App = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [dictOfVariables, setDictOfVariables] = useState({});
   const [latexExpression, setLatexExpression] = useState([]);
+  const [firstVisit, setFirstVisit] = useState(false);
   const [latexPosition, setLatexPosition] = useState({ x: 10, y: 200 });
 
   const getCanvasCoordinates = (e) => {
@@ -70,53 +72,64 @@ const App = () => {
   };
 
   const sendData = async () => {
+    const toastId = toast.loading("Evaluating...");
     const canvas = canvasRef.current;
-    if (canvas) {
-      const response = await axios.post(`${BASE_URL}/evaluate`, {
-        image: canvas.toDataURL("image/png"),
-        dict_of_vars: dictOfVariables,
-      });
-      const res = await response.data;
-      res.data.forEach((item) => {
-        if (item.assign === true) {
-          setDictOfVariables((prev) => ({
-            ...prev,
-            [item.expr]: item.result,
-          }));
-        }
-      });
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        let minX = canvas.width,
-          minY = canvas.height,
-          maxX = 0,
-          maxY = 0;
-        for (let y = 0; y < canvas.height; y++) {
-          for (let x = 0; x < canvas.width; x++) {
-            const i = (y * canvas.width + x) * 4;
-            if (imageData.data[i + 3] > 0) {
-              minX = Math.min(minX, x);
-              minY = Math.min(minY, y);
-              maxX = Math.max(maxX, x);
-              maxY = Math.max(maxY, y);
+    try {
+      if (canvas) {
+        const response = await axios.post(`${BASE_URL}/evaluate`, {
+          image: canvas.toDataURL("image/png"),
+          dict_of_vars: dictOfVariables,
+        });
+        const res = await response.data;
+        res.data.forEach((item) => {
+          if (item.assign === true) {
+            setDictOfVariables((prev) => ({
+              ...prev,
+              [item.expr]: item.result,
+            }));
+          }
+        });
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let minX = canvas.width,
+            minY = canvas.height,
+            maxX = 0,
+            maxY = 0;
+          for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+              const i = (y * canvas.width + x) * 4;
+              if (imageData.data[i + 3] > 0) {
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+              }
             }
           }
-        }
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        setLatexPosition({ x: centerX, y: centerY });
-        if (res.data) {
-          res.data.forEach((data) => {
-            setTimeout(() => {
-              setResult({
-                expression: data.expr,
-                answer: data.result,
-              });
-            }, 1000);
-          });
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          setLatexPosition({ x: centerX, y: centerY });
+          if (res.data) {
+            res.data.forEach((data) => {
+              setTimeout(() => {
+                setResult({
+                  expression: data.expr,
+                  answer: data.result,
+                });
+              }, 1000);
+            });
+          }
         }
       }
+      toast.success("Evaluation successful", {
+        id: toastId,
+      });
+    } catch (error) {
+      console.error(error.message);
+      toast.error("Error in evaluation the expression", {
+        id: toastId,
+      });
     }
   };
 
@@ -131,6 +144,10 @@ const App = () => {
       }
     }
   };
+
+  useEffect(() => {
+    setFirstVisit(true);
+  }, []);
 
   useEffect(() => {
     if (latexExpression.length > 0 && window.MathJax) {
@@ -198,6 +215,37 @@ const App = () => {
 
   return (
     <div className="w-full h-screen bg-gray-200 flex items-center justify-center">
+      {firstVisit && (
+        <div className="fixed inset-0 bg-black bg-opacity-85 z-50 flex items-center justify-center">
+          <div className="w-[50%] h-auto p-6 bg-white rounded-md">
+            <h1 className="text-2xl font-bold text-gray-500">
+              Welcome to Math Draw
+            </h1>
+            <p className="text-base text-gray-500 leading-none mt-2">
+              Math Draw is a tool that allows you to draw mathematical
+              expressions and equations on a canvas and evaluate them.
+            </p>
+            <div className="w-full h-auto flex items-center justify-between mt-10">
+              <p className="text-sm text-gray-500 leading-none">
+                Created by :{" "}
+                <a
+                  href="https://github.com/Subhendu-Kumar"
+                  target="_blank"
+                  className="text-purple-500 font-semibold underline"
+                >
+                  Subhendu Kumar
+                </a>
+              </p>
+              <button
+                className="w-fit h-auto px-3 py-1 bg-purple-200 hover:bg-purple-300 transition-all duration-300 ease-in-out rounded-md text-sm text-black font-semibold"
+                onClick={() => setFirstVisit(false)}
+              >
+                Continue to app
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="w-[22%] h-full border-r-2 border-gray-300 p-4 flex items-start justify-between flex-col">
         <div className="w-full h-full">
           <div className="w-full h-auto flex items-center justify-start gap-3 text-3xl font-bold text-gray-500 select-none border-b-2 border-gray-300 pb-3">
@@ -266,6 +314,7 @@ const App = () => {
             </motion.div>
           ))}
       </div>
+      <Toaster />
     </div>
   );
 };
