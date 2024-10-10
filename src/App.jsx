@@ -225,6 +225,10 @@ const App = () => {
               Math Draw is a tool that allows you to draw mathematical
               expressions and equations on a canvas and evaluate them.
             </p>
+            <p className="text-sm text-gray-500 leading-none mt-2">
+              <span className="text-red-500">Note!</span> this may will not work
+              for expressions which are not properply drawen
+            </p>
             <div className="w-full h-auto flex items-center justify-between mt-10">
               <p className="text-sm text-gray-500 leading-none">
                 Created by :{" "}
